@@ -1,0 +1,103 @@
+# Stage 1 - conditional 3D VQ-GAN over binary LAA masks.
+# This is the configuration used for the model reported in the paper.
+# Replace the paths below with your own before training.
+
+# ---- Paths ----
+paths:
+  data_dir: /path/to/laa_masks                       # binary LAA masks, 128^3 .nii.gz
+  descriptors:
+    train: /path/to/descriptors_train.json           # 18 descriptors per case (Box-Cox + z-scored)
+    val: /path/to/descriptors_val.json
+    bad_filenames: null                              # optional text file of cases to exclude
+  checkpoints_dir: runs/vqgan3d/checkpoints
+  logs_dir: runs/vqgan3d/logs
+  image_dir: runs/vqgan3d/samples                    # validation reconstructions (.stl)
+
+# ---- Logging ----
+logging:
+  wandb:
+    enabled: false
+    project: laa-ldm
+    entity: null
+    log_model: false
+    run_name: vqgan3d
+
+# ---- Data ----
+data:
+  batch_size: 2
+  num_workers: 8
+
+# ---- Model (architecture) ----
+model:
+  spatial_dims: 3
+  in_channels: 1
+  out_channels: 1
+  num_res_blocks: [2, 2, 2, 2, 2]
+  num_channels: [32, 64, 128, 256, 512]              # 128^3 -> 8^3 latent grid
+  attention_levels: [false, false, false, false, true]
+  codebook_dim: 256
+  codebook_size: 512
+  context_dim: 128
+  num_context_vars: 18                               # the 18 shape descriptors
+  norm_num_groups: 16
+  norm_eps: 1.0e-6
+  with_encoder_nonlocal_attn: true
+  with_decoder_nonlocal_attn: true
+  use_flash_attention: false                         # requires xformers
+  use_convtranspose: false
+  beta: 0.25                                         # commitment loss weight
+  ema_decay: 0.98
+  distance_metric: "cosine"                          # "l2" | "cosine"
+  lambda_entropy: 1.0e-4                             # codebook usage entropy bonus
+
+# ---- Loss weights ----
+losses:
+  codebook_weight: 1.5
+  perceptual_weight: 0.001                           # 0.0 disables the 2.5D LPIPS term
+
+# ---- Discriminator ----
+discriminator:
+  in_channels: 1
+  n_layers: 3
+  ndf: 32
+  loss: hinge                                        # hinge | vanilla
+  start: 20000                                       # step at which the adversarial term switches on
+  factor: 0.01
+  weight: 0.01
+  r1_gamma: 2.5
+  use_actnorm: false
+  init_noise_std: 0.0                                # instance noise on the discriminator inputs
+  noise_decay_steps: 0.0
+
+# ---- Optim ----
+optim:
+  lr_ae: 5.0e-5
+  lr_disc: 5.0e-5
+
+# ---- Trainer ----
+trainer:
+  accelerator: gpu
+  devices: 2
+  strategy: ddp_find_unused_parameters_true
+  num_nodes: 1
+  use_distributed_sampler: true
+  precision: 32
+  max_epochs: 128
+  num_warmup_epochs: 2
+  ddp_env:                                           # NCCL settings applied before DDP starts
+    NCCL_DEBUG: INFO
+    NCCL_P2P_DISABLE: "1"
+    NCCL_IB_DISABLE: "1"
+  gradient_accumulation:
+    effective_batch_size: 16                         # global batch size across all ranks
+
+# ---- Callbacks ----
+callbacks:
+  model_checkpoint:
+    rolling_filename: last_epoch_{epoch:03d}
+    rolling_last_k: 5
+    best_precision_filename: best_precision_epoch_{epoch:03d}
+    best_iou_filename: best_iou_epoch_{epoch:03d}
+    every_n_epochs: 1
+    precision_monitor: val/precision
+    iou_monitor: val/iou

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laa-ldm"
+version = "1.0.0"
+description = "Conditional 3D shape synthesis of the left atrial appendage via discrete latent diffusion"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+dynamic = ["dependencies"]
+
+[project.urls]
+Repository = "https://github.com/Bjonze/Conditional-3D-Shape-Synthesis-of-the-Left-Atrial-Appendage-via-Discrete-Latent-Diffusion"
+
+[tool.setuptools.packages.find]
+include = ["laa_ldm*"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }

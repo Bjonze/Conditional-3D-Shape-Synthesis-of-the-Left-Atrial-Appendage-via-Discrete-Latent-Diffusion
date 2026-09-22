@@ -1,0 +1,10 @@
+# Reference environment. The models were trained and evaluated with
+# python 3.10, torch 2.10 (cu130), pytorch-lightning 2.6 and monai 1.5.
+name: laa-ldm
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - -r requirements.txt

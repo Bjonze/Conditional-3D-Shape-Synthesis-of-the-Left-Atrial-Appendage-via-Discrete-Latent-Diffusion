@@ -1,0 +1,147 @@
+# Stage 2 - descriptor-conditioned discrete latent diffusion over VQ-GAN codes.
+# This is the configuration used for the model reported in the paper.
+# Replace the paths below with your own before training.
+
+name: laa_diffusion            # run name (used for the output directory and wandb)
+wandb_bool: false              # set true to log to Weights & Biases
+
+model:
+  target: laa_ldm.diffusion.model.ConditionalLatentDiffusion
+  params:
+    content_info: {key: indices}
+    condition_info: {key: ctx}
+    learnable_cf: True                       # learned empty embedding for classifier-free guidance
+
+    # ---- Frozen stage-1 codec: decodes sampled token grids back to masks ----
+    content_codec_config:
+      target: laa_ldm.diffusion.codec.VQGAN3DCodec
+      params:
+        trainable: False
+        token_shape: [8, 8, 8]
+        config_path: 'configs/vqgan3d.yaml'
+        ckpt_path: '/path/to/vqgan3d.ckpt'
+        num_tokens: 512
+
+    # ---- Conditioning: the 18 descriptors, passed through to the tokenizer ----
+    condition_codec_config:
+      target: laa_ldm.diffusion.condition.DescriptorCodec
+      params:
+        context_length: 18
+        with_mask: True
+
+    # ---- The diffusion process and its denoiser ----
+    diffusion_config:
+      target: laa_ldm.diffusion.diffusion.DiffusionTransformer
+      params:
+        diffusion_step: 100
+        alpha_init_type: 'alpha1'            # linear mask-and-replace schedule
+        auxiliary_loss_weight: 5.0e-4
+        adaptive_auxiliary_loss: True
+        mask_weight: [1, 1]                  # loss weight on [MASK] vs non-mask positions
+        learnable_cf: True                   # must match params.learnable_cf above
+
+        transformer_config:
+          target: laa_ldm.diffusion.transformer.DenoisingTransformer
+          params:
+            attn_type: 'selfcross'
+            n_layer: 8
+            condition_seq_len: 18
+            content_seq_len: 512             # 8 * 8 * 8
+            content_spatial_size: [8, 8, 8]
+            n_embd: 512
+            condition_dim: 128
+            n_head: 4
+            attn_pdrop: 0.0
+            resid_pdrop: 0.0
+            block_activate: GELU2
+            timestep_type: 'adalayernorm'
+            mlp_hidden_times: 2
+
+        condition_emb_config:
+          target: laa_ldm.diffusion.embeddings.ScalarTokenizer
+          params:
+            num_features: 18
+            token_dim: 128
+            hidden: 32
+            use_transformer: True
+            n_heads: 4
+            n_layers: 2
+            ff_mult: 2
+            dropout: 0.1
+            normalize: True
+
+        content_emb_config:
+          target: laa_ldm.diffusion.embeddings.MaskedTokenEmbedding3D
+          params:
+            num_embed: 512                   # codebook size; [MASK] is added internally
+            spatial_size: !!python/tuple [8, 8, 8]
+            embed_dim: 512
+            trainable: True
+            pos_emb_type: embedding
+
+solver:
+  base_lr: 1.0e-6                            # starting LR; warmup raises it to warmup_lr
+  adjust_lr: none                            # do not rescale the LR by batch size
+  max_epochs: 300
+  save_epochs: 5
+  validation_epochs: 2
+  sample_iterations: epoch                   # decode preview meshes once per epoch
+  print_specific_things: True
+  ddp_find_unused_parameters: True
+
+  checkpoint:
+    rolling_interval_epochs: 5
+    rolling_window_epochs: 50
+    rolling_filename: rolling_epoch_{epoch:03d}.pth
+    best_metrics:                            # a checkpoint is kept per metric
+      val/token_accuracy: max
+      val/loss: min
+      val/acc_mid_t33-66: max
+      val/acc_late_t0-33: max
+      val/acc_early_t66-99: max
+
+  ema:
+    decay: 0.99
+    update_interval: 25
+    device: cpu
+
+  clip_grad_norm:
+    target: laa_ldm.diffusion.engine.clip_grad_norm.ClipGradNorm
+    params:
+      start_iteration: 0
+      end_iteration: 5000
+      max_norm: 0.5
+
+  optimizers_and_schedulers:
+  - name: none
+    optimizer:
+      target: torch.optim.AdamW
+      params:
+        betas: !!python/tuple [0.9, 0.96]
+        weight_decay: 4.5e-2
+    scheduler:
+      step_iteration: 1
+      target: laa_ldm.diffusion.engine.lr_scheduler.CosineAnnealingLRWithWarmup
+      params:
+        T_max: 121050                        # recomputed from max_epochs at runtime
+        min_lr: 1.0e-6
+        warmup_lr: 1.0e-4                    # peak LR after warmup
+        warmup: 8060                         # ~10 epochs
+
+dataloader:
+  data_root: /path/to/latent_codes           # output of scripts/encode_dataset.py
+  batch_size: 2
+  accumulated_batch_size: 8                  # effective batch size across all ranks
+  num_workers: 4
+  train_datasets:
+    - target: laa_ldm.diffusion.data.LatentTokenDataset
+      params:
+        data_root: /path/to/latent_codes
+        phase: train
+        with_name: False
+  validation_datasets:
+    - target: laa_ldm.diffusion.data.LatentTokenDataset
+      params:
+        data_root: /path/to/latent_codes
+        phase: val
+        with_name: False

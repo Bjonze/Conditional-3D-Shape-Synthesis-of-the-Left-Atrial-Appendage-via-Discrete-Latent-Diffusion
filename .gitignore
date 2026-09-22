@@ -1,0 +1,30 @@
+# Runs and artefacts
+outputs/
+runs/
+results/
+wandb/
+*.ckpt
+*.pth
+*.log
+
+# Generated data
+*.nii.gz
+*.stl
+*.ply
+*.npz
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+.ipynb_checkpoints/
