@@ -1,6 +1,6 @@
 # Conditional 3D Shape Synthesis of the Left Atrial Appendage via Discrete Latent Diffusion
 
-Code for the paper *"Conditional 3D Shape Synthesis of the Left Atrial Appendage via Discrete Latent Diffusion"*.
+Code for the STACOM 2026 paper *"Conditional 3D Shape Synthesis of the Left Atrial Appendage via Discrete Latent Diffusion"*.
 
 The left atrial appendage (LAA) is highly variable in shape, and that variability matters clinically — but cohorts of segmented appendages are small and hard to share. This repository generates new LAA anatomies **on demand and under anatomical control**: you specify 18 interpretable shape descriptors (volume, tortuosity, ostium axes, elongation, …) and the model synthesises a watertight 3D appendage that matches them.
 
@@ -78,7 +78,7 @@ The models were trained with python 3.10, PyTorch 2.10 (CUDA 13.0), PyTorch Ligh
 Each case is a pair:
 
 * a **binary LAA mask** as a 128³ `.nii.gz` volume, and
-* its **18 shape descriptors**, Box-Cox transformed and standardised.
+* its **18 shape descriptors**, standardised.
 
 The descriptors live in a JSON file, one record per case:
 
@@ -157,7 +157,7 @@ python scripts/generate_from_descriptors.py \
 
 ### A synthetic cohort from the descriptor prior
 
-Because the descriptors are Box-Cox transformed and standardised, their joint distribution is approximately Gaussian. Sampling that prior produces new anatomies that follow the population statistics instead of copying any individual case. The training cohort's mean and covariance ship in `assets/statistics/`:
+Because the descriptors are standardised, their joint distribution is approximately Gaussian. Sampling that prior produces new anatomies that follow the population statistics instead of copying any individual case. The training cohort's mean and covariance ship in `assets/statistics/`:
 
 ```bash
 python scripts/sample_descriptor_prior.py \
@@ -185,7 +185,7 @@ volumes = sampler.sample(descriptors)          # (B, 18) -> (B, 128, 128, 128)
 |---|---|---|
 | `--guidance-scale` | 5.0 | Classifier-free guidance strength; 1.0 disables it. Higher values follow the descriptors more closely at some cost in diversity. |
 | `--prior-rule` | 2 | 0 = plain VQ-Diffusion, 1 = high-quality inference, 2 = purity prior (reveal the most confident tokens first). |
-| `--prior-weight` | 1.0 / 0.0 | Strength of the purity prior. |
+| `--prior-weight` | 1.0 / 0.0 | Strength of the purity prior. Typical range: (0.0, 3.0) |
 | `--truncation-rate` | 1.0 | Nucleus truncation of each reverse step. |
 | `--infer-speed` | off | Skip diffusion steps to sample this many times faster. |
 
@@ -205,8 +205,8 @@ By default the decoded volume is thresholded at 0.5 and only the largest connect
 ```bibtex
 @article{laa_discrete_latent_diffusion,
   title   = {Conditional 3D Shape Synthesis of the Left Atrial Appendage via Discrete Latent Diffusion},
-  author  = {TODO},
-  journal = {TODO},
+  author  = {Bj{\o}rn Hansen, Jonas Loft, Rasmus R. Paulsen, Rasmus R. Paulsen, Klaus F. Kofoed and Kristine S{\o}rensen},
+  journal = {Statistical Atlases and Computational Modeling of the Heart (STACOM), MICCAI Workshop},
   year    = {2026}
 }
 ```
