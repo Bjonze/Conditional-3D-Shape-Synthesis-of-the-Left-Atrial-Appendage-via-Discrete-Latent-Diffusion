@@ -205,7 +205,7 @@ By default the decoded volume is thresholded at 0.5 and only the largest connect
 ```bibtex
 @article{laa_discrete_latent_diffusion,
   title   = {Conditional 3D Shape Synthesis of the Left Atrial Appendage via Discrete Latent Diffusion},
-  author  = {Bj{\o}rn Hansen, Jonas Loft, Rasmus R. Paulsen, Rasmus R. Paulsen, Klaus F. Kofoed and Kristine S{\o}rensen},
+  author  = {Bj{\o}rn Hansen, Jonas Loft, Rasmus R. Paulsen, Oscar Camara, Klaus F. Kofoed and Kristine S{\o}rensen},
   journal = {Statistical Atlases and Computational Modeling of the Heart (STACOM), MICCAI Workshop},
   year    = {2026}
 }
